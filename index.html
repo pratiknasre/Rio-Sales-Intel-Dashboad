@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RIO Sales Dashboard — Daily Intel</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflarecom/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -1554,6 +1554,21 @@ function getWorkingDaysForMonth(dateStr) {
   return count || WORKING_DAYS;
 }
 
+function getElapsedWorkingDays(dateStr) {
+  // Count working days from day 1 of the month up to and including dateStr
+  if (!dateStr) return 1;
+  const d = new Date(dateStr + 'T00:00:00');
+  const yr = d.getFullYear(), mo = d.getMonth(), dayEnd = d.getDate();
+  let count = 0;
+  for (let day = 1; day <= dayEnd; day++) {
+    if (new Date(yr, mo, day).getDay() === 0) continue;
+    const ds = yr + '-' + String(mo+1).padStart(2,'0') + '-' + String(day).padStart(2,'0');
+    if (HOLIDAYS.includes(ds)) continue;
+    count++;
+  }
+  return count || 1;
+}
+
 function saveHolidays() {
   if (localStorage) localStorage.setItem('rioHolidays', JSON.stringify(HOLIDAYS));
   renderHolidayUI();
@@ -2390,6 +2405,7 @@ function parseExcelToBlocks(wb) {
       if(xlSS(r[100]))d.on_time=xlSS(r[100]);
     }
     const workingDays=getWorkingDaysForMonth(targetDate);
+    const elapsedWorkingDays=getElapsedWorkingDays(targetDate);
     const isDayOff=isNonWorkingDay(targetDate);
     const groups={};
     for(const[emp,base] of Object.entries(repMaster)){
@@ -2416,7 +2432,7 @@ function parseExcelToBlocks(wb) {
         emp_id:emp,name:base.name,designation:base.designation,
         sc,tc:rec.tc||0,pc:rec.pc||0,
         rev_actual:rec.sale_value||0,rev_target:(!isDayOff&&revMtdTgt)?Math.round(revMtdTgt/workingDays*100)/100:0,
-        rev_mtd_actual:rec.mtd_value||0,rev_mtd_target:revMtdTgt,
+        rev_mtd_actual:rec.mtd_value||0,rev_mtd_target:revMtdTgt?Math.round(revMtdTgt/workingDays*elapsedWorkingDays):0,
         first_activity:fa,last_activity:la,availability:xlSS(rec.on_time),
         rio_can:rec.rio_can||0,rio_boom:rec.rio_boom||0,rio_go:rec.rio_go||0,
         rio_indie:rec.rio_indie||0,indie_can:rec.indie_can||0,
@@ -2577,6 +2593,7 @@ function parseGSheetsToBlocks(sheets) {
       if (xlSS(r[100])) d.on_time = xlSS(r[100]);
     }
     const workingDays = getWorkingDaysForMonth(targetDate);
+    const elapsedWorkingDays = getElapsedWorkingDays(targetDate);
     const isDayOff = isNonWorkingDay(targetDate);
     const groups = {};
     for (const [emp, base] of Object.entries(repMaster)) {
@@ -2603,7 +2620,7 @@ function parseGSheetsToBlocks(sheets) {
         emp_id: emp, name: base.name, designation: base.designation,
         sc, tc: rec.tc||0, pc: rec.pc||0,
         rev_actual: rec.sale_value||0, rev_target: (!isDayOff&&revMtdTgt)?Math.round(revMtdTgt/workingDays*100)/100:0,
-        rev_mtd_actual: rec.mtd_value||0, rev_mtd_target: revMtdTgt,
+        rev_mtd_actual: rec.mtd_value||0, rev_mtd_target: revMtdTgt?Math.round(revMtdTgt/workingDays*elapsedWorkingDays):0,
         first_activity: fa, last_activity: la, availability: xlSS(rec.on_time),
         rio_can: rec.rio_can||0, rio_boom: rec.rio_boom||0, rio_go: rec.rio_go||0,
         rio_indie: rec.rio_indie||0, indie_can: rec.indie_can||0,
