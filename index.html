@@ -1428,6 +1428,8 @@ function deleteHistory(i) {
 // =================== EXCEL UPLOAD PIPELINE ===================
 const HOUR_LABELS_P = ['<9','9-10','10-11','11-12','12-1','1-2','2-3','3-4','4-5','5-6','6-7','>7'];
 
+const EXCLUDED_TLS = ['MT']; // Team leaders excluded from all calculations
+
 const TL_NORMALISE_P = {
   'DHARAMRAJ PANDEY':'DHARMRAJ PANDEY',
   'Pramod-Raigad':'MAYUR PATIL',
@@ -2417,6 +2419,7 @@ function parseExcelToBlocks(wb) {
       if(!tl)continue;
       const mergeKey=tl+'||'+terr;
       if(BLOCK_MERGE_P[mergeKey]){const[nt,nterr]=BLOCK_MERGE_P[mergeKey].split('||');tl=nt;terr=nterr;}
+      if(EXCLUDED_TLS.includes(tl))continue;
       const hourly=(hourlyD[targetDate]||{})[emp]||[0,0,0,0,0,0,0,0,0,0,0,0];
       const totC=hourly.reduce((a,b)=>a+b,0);
       const actH=hourly.slice(1,-1).filter(h=>h>0).length;
@@ -2605,6 +2608,7 @@ function parseGSheetsToBlocks(sheets) {
       if (!tl) continue;
       const mergeKey = tl + '||' + terr;
       if (BLOCK_MERGE_P[mergeKey]) { const [nt,nterr] = BLOCK_MERGE_P[mergeKey].split('||'); tl = nt; terr = nterr; }
+      if (EXCLUDED_TLS.includes(tl)) continue;
       const hourly = (hourlyD[targetDate] || {})[emp] || [0,0,0,0,0,0,0,0,0,0,0,0];
       const totC = hourly.reduce((a,b)=>a+b,0);
       const actH = hourly.slice(1,-1).filter(h=>h>0).length;
