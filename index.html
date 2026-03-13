@@ -1484,10 +1484,12 @@ function xlDateStr(v){
   if(typeof v==='number'){const d=new Date((v-25569)*86400*1000);return d.toISOString().split('T')[0];}
   const s=String(v).trim();
   if(/^\d{4}-\d{2}-\d{2}/.test(s))return s.slice(0,10);
-  // DD/MM/YYYY — Indian format (must check before generic Date constructor)
-  const dmyMatch=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  // DD/MM/YYYY or DD-MM-YYYY \u2014 Indian format (must check before generic Date constructor)
+  const dmyMatch=s.match(/^(\d{1,2})[/](\d{1,2})[/](\d{4})$/);
   if(dmyMatch){const[,d2,m2,y2]=dmyMatch;return y2+'-'+m2.padStart(2,'0')+'-'+d2.padStart(2,'0');}
-  // DD-Mon-YY or DD-Mon-YYYY e.g. "07-Mar-26"
+  const dmyHyphen=s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if(dmyHyphen&&parseInt(dmyHyphen[3])>2000){const[,d2,m2,y2]=dmyHyphen;return y2+'-'+m2.padStart(2,'0')+'-'+d2.padStart(2,'0');}
+    // DD-Mon-YY or DD-Mon-YYYY e.g. "07-Mar-26"
   const dmonMatch=s.match(/^(\d{1,2})[-\/\s]([A-Za-z]{3})[-\/\s](\d{2,4})$/);
   if(dmonMatch){
     const months={jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12'};
@@ -2515,20 +2517,84 @@ function hideGSStatus() {
   if (wrap) wrap.style.display = 'none';
 }
 
-// --- Fetch one sheet from Sheets API ---
+// --- Fetch one sheet from Sheets API (with CSV fallback for uploaded .xlsx files) ---
 async function fetchSheetValues(sheetId, apiKey, sheetName) {
+  // Try Google Sheets API v4 first (works for native Google Sheets)
   const url = 'https://sheets.googleapis.com/v4/spreadsheets/'
     + encodeURIComponent(sheetId) + '/values/'
     + encodeURIComponent(sheetName) + '?key=' + encodeURIComponent(apiKey)
     + '&valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=SERIAL_NUMBER';
-  const res = await fetch(url, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
-  if (!res.ok) {
+  try {
+    const res = await fetch(url, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
+    if (res.ok) return (await res.json()).values || [];
     const body = await res.json().catch(() => ({}));
-    throw new Error((body.error && body.error.message) || 'HTTP ' + res.status);
+    const errMsg = (body.error && body.error.message) || 'HTTP ' + res.status;
+    // If document type not supported (uploaded .xlsx), fall back to CSV export
+    if (errMsg.includes('not supported') || errMsg.includes('not found')) {
+      console.warn('Sheets API failed for "' + sheetName + '", trying CSV fallback\u2026');
+      return await fetchSheetCSV(sheetId, sheetName);
+    }
+    throw new Error(errMsg);
+  } catch(e) {
+    // Also try CSV fallback for network/CORS errors
+    if (e.message && (e.message.includes('not supported') || e.message.includes('Failed to fetch'))) {
+      console.warn('Sheets API error, trying CSV fallback for "' + sheetName + '"\u2026');
+      return await fetchSheetCSV(sheetId, sheetName);
+    }
+    throw e;
   }
-  return (await res.json()).values || [];
 }
 
+// --- CSV fallback: uses Google public gviz export (works for uploaded .xlsx too) ---
+async function fetchSheetCSV(sheetId, sheetName) {
+  const url = 'https://docs.google.com/spreadsheets/d/' + sheetId
+    + '/gviz/tq?tqx=out:csv&sheet=' + encodeURIComponent(sheetName);
+  const res = await fetch(url, { cache: 'no-store' });
+  if (!res.ok) throw new Error('CSV export failed for "' + sheetName + '": HTTP ' + res.status);
+  const csv = await res.text();
+  return parseCSVToArray(csv);
+}
+
+// --- Simple RFC 4180 CSV parser to 2D array ---
+function parseCSVToArray(text) {
+  const rows = []; let cur = []; let field = ''; let inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQ) {
+      if (ch === '"' && text[i+1] === '"') { field += '"'; i++; }
+      else if (ch === '"') { inQ = false; }
+      else { field += ch; }
+    } else {
+      if (ch === '"') { inQ = true; }
+      else if (ch === ',') { cur.push(csvVal(field)); field = ''; }
+      else if (ch === '\n' || (ch === '\r' && text[i+1] === '\n')) {
+        cur.push(csvVal(field)); field = '';
+        if (cur.length > 1 || cur[0] !== '') rows.push(cur);
+        cur = [];
+        if (ch === '\r') i++;
+      } else if (ch === '\r') {
+        cur.push(csvVal(field)); field = '';
+        if (cur.length > 1 || cur[0] !== '') rows.push(cur);
+        cur = [];
+      } else { field += ch; }
+    }
+  }
+  if (field || cur.length) { cur.push(csvVal(field)); if (cur.length > 1 || cur[0] !== '') rows.push(cur); }
+  return rows;
+}
+function csvVal(s) {
+  s = s.trim();
+  if (s === '') return '';
+  // Google CSV of uploaded .xlsx: dates as DD-MM-YYYY (Indian locale)
+  const hm = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if (hm && parseInt(hm[3])>2000) { return hm[3]+'-'+hm[2].padStart(2,'0')+'-'+hm[1].padStart(2,'0'); }
+  // Google CSV of native sheets: dates as M/D/YYYY (US format)
+  const dm = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (dm) { return dm[3]+'-'+dm[1].padStart(2,'0')+'-'+dm[2].padStart(2,'0'); }
+  const n = Number(s);
+  if (!isNaN(n) && s !== '') return n;
+  return s;
+}
 // --- Parse pre-fetched GSheets arrays into blocks (same logic as parseExcelToBlocks) ---
 function parseGSheetsToBlocks(sheets) {
   const rowsT = sheets.targets || [];
