@@ -2486,8 +2486,15 @@ function saveGSConfig(sheetId, apiKey) {
   localStorage.setItem('gsConfig', JSON.stringify(cfg));
   return cfg;
 }
+const DEFAULT_GS_CONFIG = {
+  sheetId: '1UMaQISV-lz4qLATeiuG9GUc9EercWxoB',
+  apiKey: 'AIzaSyD9jtntH74NCFAdR1jcAslAJNXJk1ZEtI8'
+};
 function loadGSConfig() {
-  try { return JSON.parse(localStorage.getItem('gsConfig') || 'null'); } catch(e) { return null; }
+  try {
+    const stored = JSON.parse(localStorage.getItem('gsConfig') || 'null');
+    return stored || DEFAULT_GS_CONFIG;
+  } catch(e) { return DEFAULT_GS_CONFIG; }
 }
 function clearGSConfig() { localStorage.removeItem('gsConfig'); }
 
