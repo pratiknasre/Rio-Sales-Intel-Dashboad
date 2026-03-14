@@ -2173,7 +2173,7 @@ function buildTLBody(b) {
           const pct2=tgt>0?Math.round(act/tgt*100):0;
           const clrAch=pct2>=100?'var(--gn)':pct2>=60?'var(--yw)':'var(--rd)';
           return `<div style="font-size:9px;font-family:var(--mono);color:var(--tx2)">${lbl}</div>`
-               + `<div style="font-size:9px;font-family:var(--mono);color:${clr}">${act}<span style="color:var(--tx3)">/${tgt||'—'}</span>`
+               + `<div style="font-size:9px;font-family:var(--mono);color:${clr}">${Math.round(act)}<span style="color:var(--tx3)">/${tgt?Math.round(tgt):'—'}</span>`
                + (tgt>0?`<span style="color:${clrAch};margin-left:3px">${pct2}%</span>`:'')
                + `</div>`;
         }).join('')}
@@ -2283,8 +2283,8 @@ function buildTLBody(b) {
                 const pa=tgt>0?Math.round(act/tgt*100):0;
                 const clrA=pa>=100?'var(--gn)':pa>=60?'var(--yw)':'var(--rd)';
                 return `<td style="font-family:var(--mono);font-size:10px">`
-                  +`<span style="color:${clr}">${act}</span>`
-                  +(tgt?`<span style="color:var(--tx3)">/${tgt}</span><span style="color:${clrA};margin-left:2px;font-size:9px">${pa}%</span>`:'')
+                  +`<span style="color:${clr}">${Math.round(act)}</span>`
+                  +(tgt?`<span style="color:var(--tx3)">/${Math.round(tgt)}</span><span style="color:${clrA};margin-left:2px;font-size:9px">${pa}%</span>`:'')
                   +`</td>`;
               }).join('')}
             </tr>${heatRow}`;
