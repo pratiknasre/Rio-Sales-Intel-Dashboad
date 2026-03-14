@@ -1648,6 +1648,7 @@ function getBlocksCompat(dateKey) {
         sc: m.sc||0, tc: m.tc||0, pc: m.pc||0,
         first_activity: m.first_activity||'', last_activity: m.last_activity||'',
         rio_can: m.rio_can||0, rio_boom: m.rio_boom||0, rio_go: m.rio_go||0,
+        rio_indie: m.rio_indie||0, indie_can: m.indie_can||0,
         rio_can_t: m.rio_can_t||0, rio_boom_t: m.rio_boom_t||0, rio_go_t: m.rio_go_t||0,
         rio_indie_t: m.rio_indie_t||0, indie_can_t: m.indie_can_t||0,
         hourly: m.hourly||[0,0,0,0,0,0,0,0,0,0,0,0],
@@ -1761,14 +1762,14 @@ function getBlocksForRange(startDate, endDate) {
         rev_actual: 0, rev_target: 0,
         rev_mtd_actual: 0, rev_mtd_target: b.rev_mtd_target,
         rev_ach_pct: 0, rev_mtd_ach_pct: 0,
-        tc: 0, sc: b.sc || 0, pc: 0,
+        tc: 0, sc: 0, pc: 0,
         tc_ach_pct: 0, pc_ach_pct: 0,
         hourly: [0,0,0,0,0,0,0,0,0,0,0,0], members: []
       };
       var blk = blockMap[bKey];
       blk.rev_actual += b.rev_actual;
       blk.rev_target += b.rev_target;
-      blk.tc += b.tc; blk.pc += b.pc;
+      blk.tc += b.tc; blk.pc += b.pc; blk.sc += (b.sc || 0);
       b.hourly.forEach(function(h,i){ blk.hourly[i] += h; });
       (b.members || []).forEach(function(m) {
         var mKey = bKey + '||' + m.emp_id;
@@ -1777,18 +1778,20 @@ function getBlocksForRange(startDate, endDate) {
           availability: m.availability, _bKey: bKey,
           rev_actual: 0, rev_target: m.rev_target,
           rev_mtd_actual: 0, rev_mtd_target: m.rev_mtd_target,
-          sc: m.sc || 0, tc: 0, pc: 0,
-          rio_can: 0, rio_boom: 0, rio_go: 0,
+          sc: 0, tc: 0, pc: 0,
+          rio_can: 0, rio_boom: 0, rio_go: 0, rio_indie: 0, indie_can: 0,
           first_activity: '', last_activity: '',
           hourly: [0,0,0,0,0,0,0,0,0,0,0,0],
           calls_per_hr: 0, peak_hour: '—'
         };
         var mem = memberMap[mKey];
         mem.rev_actual += (m.rev_actual || 0);
-        mem.tc += (m.tc || 0); mem.pc += (m.pc || 0);
+        mem.sc += (m.sc || 0); mem.tc += (m.tc || 0); mem.pc += (m.pc || 0);
         mem.rio_can += (m.rio_can || 0);
         mem.rio_boom += (m.rio_boom || 0);
         mem.rio_go += (m.rio_go || 0);
+        mem.rio_indie += (m.rio_indie || 0);
+        mem.indie_can += (m.indie_can || 0);
         (m.hourly || []).forEach(function(h,i){ mem.hourly[i] += h; });
         if (m.first_activity && (!mem.first_activity || m.first_activity < mem.first_activity)) mem.first_activity = m.first_activity;
         if (m.last_activity  && (!mem.last_activity  || m.last_activity  > mem.last_activity))  mem.last_activity  = m.last_activity;
@@ -1824,6 +1827,9 @@ function getBlocksForRange(startDate, endDate) {
     b.rev_mtd_ach_pct  = b.rev_mtd_target > 0 ? b.rev_mtd_actual / b.rev_mtd_target : 0;
     b.tc_ach_pct = b.sc > 0 ? b.tc / b.sc : 0;
     b.pc_ach_pct = b.tc > 0 ? b.pc / b.tc : 0;
+    var sm = function(f){ return b.members.reduce(function(s,m){ return s+(m[f]||0); }, 0); };
+    b.can_actual = sm('rio_can'); b.boom_actual = sm('rio_boom'); b.go_actual = sm('rio_go');
+    b.indie_actual = sm('rio_indie'); b.indie_can_actual = sm('indie_can');
     return b;
   }).sort(function(a,b){ return b.rev_actual - a.rev_actual; });
 }
