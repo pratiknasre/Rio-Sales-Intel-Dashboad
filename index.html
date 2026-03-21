@@ -1484,12 +1484,12 @@ function xlDateStr(v){
   if(typeof v==='number'){const d=new Date((v-25569)*86400*1000);return d.toISOString().split('T')[0];}
   const s=String(v).trim();
   if(/^\d{4}-\d{2}-\d{2}/.test(s))return s.slice(0,10);
-  // DD/MM/YYYY or DD-MM-YYYY \u2014 Indian format (must check before generic Date constructor)
-  const dmyMatch=s.match(/^(\d{1,2})[/](\d{1,2})[/](\d{4})$/);
+  // DD/MM/YYYY or DD-MM-YYYY — Indian format (must check before generic Date constructor)
+  const dmyMatch=s.match(/^(\d{1,2})[\/](\d{1,2})[\/](\d{4})$/);
   if(dmyMatch){const[,d2,m2,y2]=dmyMatch;return y2+'-'+m2.padStart(2,'0')+'-'+d2.padStart(2,'0');}
   const dmyHyphen=s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
   if(dmyHyphen&&parseInt(dmyHyphen[3])>2000){const[,d2,m2,y2]=dmyHyphen;return y2+'-'+m2.padStart(2,'0')+'-'+d2.padStart(2,'0');}
-    // DD-Mon-YY or DD-Mon-YYYY e.g. "07-Mar-26"
+  // DD-Mon-YY or DD-Mon-YYYY e.g. "07-Mar-26"
   const dmonMatch=s.match(/^(\d{1,2})[-\/\s]([A-Za-z]{3})[-\/\s](\d{2,4})$/);
   if(dmonMatch){
     const months={jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12'};
@@ -2406,9 +2406,9 @@ function parseExcelToBlocks(wb) {
       const r=rows[i];const emp=xlSS(r[0]);const ds=xlDateStr(r[1]);if(!emp||ds!==targetDate)continue;
       if(!dayRecs[emp])dayRecs[emp]={tc:0,pc:0,sale_value:0,mtd_value:0,first_activity:'',last_activity:'',on_time:'',rio_can:0,rio_boom:0,rio_go:0,rio_indie:0,indie_can:0};
       const d=dayRecs[emp],tc=xlSN(r[38]),pc=xlSN(r[39]),sv=xlSN(r[51]),rc=xlSN(r[89]),rb=xlSN(r[88]),rg=xlSN(r[87]),ri=xlSN(r[91]),ric=xlSN(r[92]);
-      if(tc)d.tc=tc; if(pc)d.pc=pc; if(sv)d.sale_value=sv;
-      if(rc)d.rio_can=rc; if(rb)d.rio_boom=rb; if(rg)d.rio_go=rg;
-      if(ri)d.rio_indie=ri; if(ric)d.indie_can=ric;
+      if(tc)d.tc+=tc; if(pc)d.pc+=pc; if(sv)d.sale_value+=sv;
+      if(rc)d.rio_can+=rc; if(rb)d.rio_boom+=rb; if(rg)d.rio_go+=rg;
+      if(ri)d.rio_indie+=ri; if(ric)d.indie_can+=ric;
       const mtd=xlSN(r[61]);if(mtd>d.mtd_value)d.mtd_value=mtd;
       const fa=xlTimeFmt(r[71]);if(fa&&(!d.first_activity||fa<d.first_activity))d.first_activity=fa;
       const la=xlTimeFmt(r[72]);if(la&&la>d.last_activity)d.last_activity=la;
@@ -2537,21 +2537,21 @@ async function fetchSheetValues(sheetId, apiKey, sheetName) {
     const errMsg = (body.error && body.error.message) || 'HTTP ' + res.status;
     // If document type not supported (uploaded .xlsx), fall back to CSV export
     if (errMsg.includes('not supported') || errMsg.includes('not found')) {
-      console.warn('Sheets API failed for "' + sheetName + '", trying CSV fallback\u2026');
+      console.warn('Sheets API failed for "' + sheetName + '", trying CSV fallback…');
       return await fetchSheetCSV(sheetId, sheetName);
     }
     throw new Error(errMsg);
   } catch(e) {
     // Also try CSV fallback for network/CORS errors
     if (e.message && (e.message.includes('not supported') || e.message.includes('Failed to fetch'))) {
-      console.warn('Sheets API error, trying CSV fallback for "' + sheetName + '"\u2026');
+      console.warn('Sheets API error, trying CSV fallback for "' + sheetName + '"…');
       return await fetchSheetCSV(sheetId, sheetName);
     }
     throw e;
   }
 }
 
-// --- CSV fallback: uses Google public gviz export (works for uploaded .xlsx too) ---
+// --- CSV fallback: uses Google's public gviz export (works for uploaded .xlsx too) ---
 async function fetchSheetCSV(sheetId, sheetName) {
   const url = 'https://docs.google.com/spreadsheets/d/' + sheetId
     + '/gviz/tq?tqx=out:csv&sheet=' + encodeURIComponent(sheetName);
@@ -2561,7 +2561,7 @@ async function fetchSheetCSV(sheetId, sheetName) {
   return parseCSVToArray(csv);
 }
 
-// --- Simple RFC 4180 CSV parser to 2D array ---
+// --- Simple RFC 4180 CSV parser → 2D array ---
 function parseCSVToArray(text) {
   const rows = []; let cur = []; let field = ''; let inQ = false;
   for (let i = 0; i < text.length; i++) {
@@ -2591,16 +2591,17 @@ function parseCSVToArray(text) {
 function csvVal(s) {
   s = s.trim();
   if (s === '') return '';
-  // Google CSV of uploaded .xlsx: dates as DD-MM-YYYY (Indian locale)
+  // Google CSV of uploaded .xlsx: dates as DD-MM-YYYY (Indian locale) — convert to YYYY-MM-DD
   const hm = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
   if (hm && parseInt(hm[3])>2000) { return hm[3]+'-'+hm[2].padStart(2,'0')+'-'+hm[1].padStart(2,'0'); }
-  // Google CSV of native sheets: dates as M/D/YYYY (US format)
+  // Google CSV of native sheets: dates as M/D/YYYY (US format) — convert to YYYY-MM-DD
   const dm = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (dm) { return dm[3]+'-'+dm[1].padStart(2,'0')+'-'+dm[2].padStart(2,'0'); }
   const n = Number(s);
   if (!isNaN(n) && s !== '') return n;
   return s;
 }
+
 // --- Parse pre-fetched GSheets arrays into blocks (same logic as parseExcelToBlocks) ---
 function parseGSheetsToBlocks(sheets) {
   const rowsT = sheets.targets || [];
@@ -2666,9 +2667,9 @@ function parseGSheetsToBlocks(sheets) {
       const r = rowsM[i]; const emp = xlSS(r[0]); const ds = xlDateStr(r[1]); if (!emp || ds !== targetDate) continue;
       if (!dayRecs[emp]) dayRecs[emp] = { tc:0, pc:0, sale_value:0, mtd_value:0, first_activity:'', last_activity:'', on_time:'', rio_can:0, rio_boom:0, rio_go:0, rio_indie:0, indie_can:0 };
       const d = dayRecs[emp], tc=xlSN(r[38]), pc=xlSN(r[39]), sv=xlSN(r[51]), rc=xlSN(r[89]), rb=xlSN(r[88]), rg=xlSN(r[87]), ri=xlSN(r[91]), ric=xlSN(r[92]);
-      if (tc) d.tc=tc; if (pc) d.pc=pc; if (sv) d.sale_value=sv;
-      if (rc) d.rio_can=rc; if (rb) d.rio_boom=rb; if (rg) d.rio_go=rg;
-      if (ri) d.rio_indie=ri; if (ric) d.indie_can=ric;
+      if (tc) d.tc+=tc; if (pc) d.pc+=pc; if (sv) d.sale_value+=sv;
+      if (rc) d.rio_can+=rc; if (rb) d.rio_boom+=rb; if (rg) d.rio_go+=rg;
+      if (ri) d.rio_indie+=ri; if (ric) d.indie_can+=ric;
       const mtd = xlSN(r[61]); if (mtd > d.mtd_value) d.mtd_value = mtd;
       const fa = xlTimeFmt(r[71]); if (fa && (!d.first_activity || fa < d.first_activity)) d.first_activity = fa;
       const la = xlTimeFmt(r[72]); if (la && la > d.last_activity) d.last_activity = la;
